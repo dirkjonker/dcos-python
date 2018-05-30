@@ -200,7 +200,7 @@ class Client(object):
             app_json = app_resource
 
         response = self._rpc.http_req(http.post, 'v2/apps', json=app_json)
-        return response.json().get('deployments', {})[0].get('id')
+        return response.json().get('deployments', [{}])[0].get('id')
 
     def _update_req(
             self, resource_type, resource_id, resource_json, force=False):
