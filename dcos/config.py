@@ -604,6 +604,9 @@ class Toml(collections.Mapping):
 
         return len(self._dictionary)
 
+    def __repr__(self):
+        return repr(dict(self))
+
 
 class MutableToml(collections.MutableMapping):
     """Class for managing CLI configuration through TOML.
@@ -682,3 +685,6 @@ class MutableToml(collections.MutableMapping):
             toml_config = toml_config[section]
 
         del toml_config[sections[-1]]
+
+    def __repr__(self):
+        return repr(dict(self))

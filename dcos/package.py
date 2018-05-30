@@ -1,11 +1,9 @@
 import itertools
 
-from dcos import cosmos, emitting, packagemanager, subcommand, util
+from dcos import cosmos, packagemanager, subcommand, util
 from dcos.errors import DCOSException
 
 logger = util.get_logger(__name__)
-
-emitter = emitting.FlatEmitter()
 
 
 def uninstall(pkg, package_name, remove_all, app_id, cli, app):
