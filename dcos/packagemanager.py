@@ -48,7 +48,7 @@ def cosmos_error(fn):
     return check_for_cosmos_error
 
 
-class PackageManager:
+class PackageManager(object):
     """Implementation of Package Manager using Cosmos"""
 
     def __init__(self, cosmos_url):

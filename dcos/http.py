@@ -2,7 +2,7 @@ import requests
 
 from requests.auth import AuthBase
 
-from six.moves.urllib.parse import urlparse
+from six.moves.urllib.parse import urlparse as _urlparse
 
 from dcos import config, util
 from dcos.errors import (DCOSAuthenticationException,
@@ -25,6 +25,11 @@ DEFAULT_CONNECT_TIMEOUT = 5
 
 DEFAULT_TIMEOUT = (DEFAULT_CONNECT_TIMEOUT, DEFAULT_READ_TIMEOUT)
 """The default timeout tuple for connection and read."""
+
+
+def urlparse(u, *args, **kwargs):
+    # python 2.7 compatibility: urlparse does not accept None as url
+    return _urlparse(u or '', *args, **kwargs)
 
 
 def _default_is_success(status_code):

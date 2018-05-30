@@ -3,11 +3,10 @@ import os
 import re
 import shutil
 import ssl
-import urllib
-
-from urllib.request import urlopen
 
 import requests
+from six.moves import urllib
+from six.moves.urllib.request import urlopen
 
 from dcos import config, constants, http, util
 from dcos.errors import DCOSException
@@ -366,7 +365,7 @@ def remove(name):
         raise DCOSException("Cluster [{}] does not exist".format(name))
 
 
-class Cluster():
+class Cluster(object):
     """Interface for a configured cluster"""
 
     def __init__(self, cluster_id):
@@ -434,6 +433,9 @@ class Cluster():
     def __hash__(self):
         return hash(self.cluster_id)
 
+    def __repr__(self):
+        return '<dcos.cluster.Cluster id={}>'.format(self.cluster_id)
+
     def dict(self):
         return {
             "cluster_id": self.get_cluster_id(),
@@ -453,7 +455,7 @@ class LinkedCluster(Cluster):
         self.cluster_url = cluster_url
         self.provider = provider
 
-        super().__init__(cluster_id)
+        super(LinkedCluster, self).__init__(cluster_id)
 
     def get_name(self):
         return self.cluster_name

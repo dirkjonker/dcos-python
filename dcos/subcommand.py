@@ -11,7 +11,8 @@ import sys
 import zipfile
 
 from distutils.version import LooseVersion
-from urllib.parse import urlparse
+
+from six.moves.urllib.parse import urlparse
 
 from dcos import config, constants, http, util
 from dcos.errors import DCOSException
@@ -734,7 +735,7 @@ class InstalledSubcommand(object):
             return util.load_json(package_json_file)
 
 
-class SubcommandProcess():
+class SubcommandProcess(object):
 
     def __init__(self, executable, command, args):
         """Representes a subcommand running by a forked process

@@ -10,9 +10,9 @@ import time
 import uuid
 
 from functools import partial
-from queue import Queue
 
 from six.moves import urllib
+from six.moves.queue import Queue
 
 from dcos import config, http, recordio, util
 

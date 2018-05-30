@@ -724,6 +724,9 @@ def _assert_response_error_message_with_400_status_json(
     pattern = r'Error on request \[(.*) (.*)\]: HTTP 400: (.*):'
     groups = (_METHOD_X, _URL_X, _REASON_X)
 
+    # python 2.7 has trailing whitespace in pretty json
+    json_lines = re.sub(r'\s+\n', '\n', json_lines)
+
     _assert_matches_with_groups(pattern, error_line, groups)
     assert json_lines == printed_json
 
@@ -783,7 +786,7 @@ def _assert_res_err_msg_with_other_status_invalid_json(status_code, json_body):
 
 
 def _assert_matches_with_groups(pattern, text, groups):
-    match = re.fullmatch(pattern, text, flags=re.DOTALL)
+    match = re.match(pattern, text, flags=re.DOTALL)
     assert match
     assert match.groups() == groups
 

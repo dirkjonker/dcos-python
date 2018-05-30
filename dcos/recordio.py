@@ -18,6 +18,8 @@ header of 4 bytes to directly encode an unsigned 32 bit
 length.
 """
 
+from six import BytesIO
+
 from dcos.errors import DCOSException
 
 
@@ -62,7 +64,7 @@ class Encoder(object):
             raise DCOSException("Calling 'serialize(message)' must"
                                 " return a 'bytes' object")
 
-        return bytes(str(len(s)) + "\n", "UTF-8") + s
+        return "{}\n".format(len(s)).encode("UTF-8") + s
 
 
 class Decoder(object):
@@ -95,7 +97,8 @@ class Decoder(object):
     def __init__(self, deserialize):
         self.deserialize = deserialize
         self.state = self.HEADER
-        self.buffer = bytes("", "UTF-8")
+        self.buffer = BytesIO()
+        self.buffer_length = 0
         self.length = 0
 
     def decode(self, data):
@@ -118,38 +121,50 @@ class Decoder(object):
 
         records = []
 
-        for c in data:
+        in_buffer = BytesIO(data)
+
+        for i in range(len(data)):
+            c = in_buffer.read(1)
             if self.state == self.HEADER:
-                if c != ord('\n'):
-                    self.buffer += bytes([c])
+                if c != b'\n':
+                    self.buffer.write(c)
                     continue
 
+                self.buffer.seek(0)
+                num = self.buffer.read()
                 try:
-                    self.length = int(self.buffer.decode("UTF-8"))
+                    self.length = int(num)
                 except Exception as exception:
                     self.state = self.FAILED
                     raise DCOSException("Failed to decode length"
                                         "'{buffer}': {error}"
-                                        .format(buffer=self.buffer,
+                                        .format(buffer=num,
                                                 error=exception))
 
-                self.buffer = bytes("", "UTF-8")
+                self._reset_buffer()
                 self.state = self.RECORD
 
                 # Note that for 0 length records, we immediately decode.
                 if self.length <= 0:
-                    records.append(self.deserialize(self.buffer))
+                    self.buffer.seek(0)
+                    records.append(self.deserialize(self.buffer.read()))
                     self.state = self.HEADER
 
             elif self.state == self.RECORD:
                 assert self.length
-                assert len(self.buffer) < self.length
+                assert self.buffer_length < self.length
 
-                self.buffer += bytes([c])
+                self.buffer.write(c)
+                self.buffer_length += 1
 
-                if len(self.buffer) == self.length:
-                    records.append(self.deserialize(self.buffer))
-                    self.buffer = bytes("", "UTF-8")
+                if self.buffer_length == self.length:
+                    self.buffer.seek(0)
+                    records.append(self.deserialize(self.buffer.read()))
+                    self._reset_buffer()
                     self.state = self.HEADER
 
         return records
+
+    def _reset_buffer(self):
+        self.buffer = BytesIO()
+        self.buffer_length = 0
