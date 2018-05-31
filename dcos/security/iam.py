@@ -8,17 +8,19 @@ For reference: https://docs.mesosphere.com/1.10/security/ent/iam-api/#/
 
 import dcos.config
 import dcos.http
-from dcos.errors import DCOSException
+from dcos.errors import DCOSException, DCOSHTTPException
 
 
 # Users
 def check_user_args(**kwargs):
+    """Check the user manipulation arguments and return a new dict."""
     required = ('password', 'public_key', 'secret')
+    valid = required + ('description',)
     if not any(arg in kwargs for arg in required):
         raise DCOSException(
                 "One of these arguments must be supplied for a new user: "
                 "password, public_key, or secret")
-    return kwargs
+    return {k: v for k, v in kwargs.items() if k in valid}
 
 
 def create_user(uid, **kwargs):
@@ -111,6 +113,12 @@ def delete_group(gid):
 
 
 # Resources
+def create_resource(rid, description):
+    # all forward slashes must be double-escaped
+    sanitized_rid = rid.replace('/', '%252F')
+    return put('acls', sanitized_rid, json={'description': description})
+
+
 def list_resources():
     return get('acls')
 
@@ -123,8 +131,14 @@ def get_resource_permissions(rid):
     return get('acls', rid, 'permissions')
 
 
-def create_resource(rid, description):
-    return put('acls', rid, json={'description': description})
+def update_resource(rid, description):
+    # all forward slashes must be double-escaped
+    sanitized_rid = rid.replace('/', '%252F')
+    return patch('acls', sanitized_rid, json={'description': description})
+
+
+def delete_resource(rid):
+    return delete('acls', rid)
 
 
 # web API utility functions
@@ -135,11 +149,17 @@ def create_url(*args):
     return '{}/{}'.format(base, path).strip('/')
 
 
-def get(*args):
-    r = dcos.http.get(create_url(*args)).json()
-    if list(r.keys()) == ['array']:
-        return r['array']
-    return r
+def get(*args, **kwargs):
+    try:
+        r = dcos.http.get(create_url(*args)).json()
+        if list(r.keys()) == ['array']:
+            return r['array']
+        return r
+    except DCOSHTTPException as e:
+        # IAM api returns 400 if something is not found...
+        if e.status() in (400, 404):
+            return None
+        raise
 
 
 def patch(*args, **kwargs):
