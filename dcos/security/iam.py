@@ -37,6 +37,14 @@ def get_user_groups(uid):
     return get('users', uid, 'groups')
 
 
+def add_user_to_group(uid, gid):
+    return put('groups', gid, 'users', uid)
+
+
+def delete_user_from_group(uid, gid):
+    return delete('groups', gid, 'users', uid)
+
+
 def list_user_permissions(uid):
     return get('users', uid, 'permissions')
 
