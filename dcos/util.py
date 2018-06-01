@@ -17,6 +17,7 @@ import time
 import jsonschema
 import six
 from six.moves import urllib
+from six.moves.urllib.parse import urlparse as _urlparse
 
 from dcos import constants
 from dcos.errors import DCOSException
@@ -762,7 +763,12 @@ def get_fault_domain(state):
         return None, None
 
 
+def urlparse(u, *args, **kwargs):
+    # python 2.7 compatibility: urlparse does not accept None as url
+    return _urlparse(u or '', *args, **kwargs)
+
+
 def normalize_url(url):
     """Check and return a normalized url."""
-    parts = urllib.parse.urlparse(url)
+    parts = urlparse(url)
     return "{}://{}".format(parts.scheme, parts.netloc)

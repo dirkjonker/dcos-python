@@ -21,7 +21,8 @@ STATUS_UNAVAILABLE = 'UNAVAILABLE'
 VERSION_UNKNOWN = 'N/A'
 
 
-def setup_cluster(dcos_url, username, password, refresh_auth=False):
+def setup_cluster(dcos_url, username, password,
+                  ssl_verify=True, refresh_auth=False):
     """Setup a new connection to a DC/OS cluster.
 
     :returns: the cluster that was connected to
@@ -31,7 +32,7 @@ def setup_cluster(dcos_url, username, password, refresh_auth=False):
     url = util.normalize_url(dcos_url)
 
     # first see if it is already configured
-    cluster = get_cluster_by_url(url)
+    cluster = get_cluster(url)
     if cluster is not None:
         cluster.set_attached()
         if refresh_auth:
@@ -44,9 +45,7 @@ def setup_cluster(dcos_url, username, password, refresh_auth=False):
         # in python 2 this url NEEDS to be a str
         # otherwise for some reason toml messes up
         config.set_val("core.dcos_url", str(url))
-
-        # get validated dcos_url
-        config.set_val("core.ssl_verify", "false")
+        config.set_val("core.ssl_verify", ssl_verify)
 
         auth.dcos_uid_password_auth(url, username, password)
         return setup_cluster_config(url, tempdir, False)
@@ -260,7 +259,7 @@ def get_clusters(include_linked=False):
 
 def get_cluster(name):
     """
-    :param name: name of cluster
+    :param name: name, id, or url of cluster
     :type name: str
     :returns: Cluster identified by name or ID, also accepts an initial
               portion of ID if it's unique.
@@ -274,6 +273,9 @@ def get_cluster(name):
         if cluster_id == name:
             return cluster
 
+        if util.normalize_url(name) == util.normalize_url(cluster.get_url()):
+            return cluster
+
         if cluster.get_name() == name or cluster_id.startswith(name):
             clusters.append(cluster)
 
@@ -283,21 +285,6 @@ def get_cluster(name):
         raise DCOSException(msg.format(name))
 
     return next(iter(clusters), None)
-
-
-def get_cluster_by_url(dcos_url):
-    """
-    :param dcos_url: URL of the DC/OS cluster
-    :type name: str
-    :returns: Cluster identified by url.
-    :rtype: Cluster or None if not configured
-    """
-    url = util.normalize_url(dcos_url)
-
-    for cluster in get_clusters():
-        cluster_url = util.normalize_url(cluster.get_url())
-        if cluster_url == url:
-            return cluster
 
 
 def get_cluster_links(dcos_url):

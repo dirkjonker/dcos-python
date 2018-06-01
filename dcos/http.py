@@ -2,13 +2,12 @@ import requests
 
 from requests.auth import AuthBase
 
-from six.moves.urllib.parse import urlparse as _urlparse
-
 from dcos import config, util
 from dcos.errors import (DCOSAuthenticationException,
                          DCOSAuthorizationException, DCOSBadRequest,
                          DCOSConnectionError, DCOSException, DCOSHTTPException,
                          DCOSUnprocessableException)
+from dcos.util import urlparse
 
 
 logger = util.get_logger(__name__)
@@ -25,11 +24,6 @@ DEFAULT_CONNECT_TIMEOUT = 5
 
 DEFAULT_TIMEOUT = (DEFAULT_CONNECT_TIMEOUT, DEFAULT_READ_TIMEOUT)
 """The default timeout tuple for connection and read."""
-
-
-def urlparse(u, *args, **kwargs):
-    # python 2.7 compatibility: urlparse does not accept None as url
-    return _urlparse(u or '', *args, **kwargs)
 
 
 def _default_is_success(status_code):
@@ -97,9 +91,9 @@ def _verify_ssl(url, verify=None, toml_config=None):
             return None
 
         verify = config.get_config_val("core.ssl_verify", toml_config)
-        if verify and verify.lower() == "true":
+        if verify is True or (verify and verify.lower() == "true"):
             verify = True
-        elif verify and verify.lower() == "false":
+        elif verify is False or (verify and verify.lower() == "false"):
             verify = False
 
     return verify
