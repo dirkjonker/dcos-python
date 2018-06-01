@@ -760,3 +760,9 @@ def get_fault_domain(state):
         return region, zone
     except Exception:
         return None, None
+
+
+def normalize_url(url):
+    """Check and return a normalized url."""
+    parts = urllib.parse.urlparse(url)
+    return "{}://{}".format(parts.scheme, parts.netloc)

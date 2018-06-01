@@ -8,7 +8,7 @@ except ImportError:
 import pytest
 
 from mock import Mock, patch
-from test_util import add_cluster_dir, create_global_config, env
+from test_util import add_cluster_dir, env
 
 from dcos import auth, cluster, config, constants, errors, util
 
@@ -128,7 +128,8 @@ def test_setup_cluster_config(mock_get):
                 "cluster": cluster_id
             }
             mock_get.return_value = mock_resp
-            path = cluster.setup_cluster_config("fake_url", setup_temp, False)
+            c = cluster.setup_cluster_config("fake_url", setup_temp, False)
+            path = c.get_cluster_path()
             expected_path = os.path.join(
                 tempdir, constants.DCOS_CLUSTERS_SUBDIR, cluster_id)
             assert path == expected_path
@@ -136,28 +137,3 @@ def test_setup_cluster_config(mock_get):
             assert os.path.exists(os.path.join(path, "dcos.toml"))
 
         assert not os.path.exists(setup_temp)
-
-
-@patch('dcos.config.get_config_val')
-@patch('dcos.http.get')
-def test_move_to_cluster_config(mock_get, mock_config):
-    with env(), util.tempdir() as tempdir:
-        os.environ[constants.DCOS_DIR_ENV] = tempdir
-
-        create_global_config(tempdir)
-        mock_config.return_value = "fake-url"
-
-        cluster_id = "fake"
-        mock_resp = Mock()
-        mock_resp.json.return_value = {"CLUSTER_ID": cluster_id}
-        mock_get.return_value = mock_resp
-
-        assert config.get_config_dir_path() == tempdir
-        cluster.move_to_cluster_config()
-
-        clusters_path = os.path.join(tempdir, constants.DCOS_CLUSTERS_SUBDIR)
-        assert os.path.exists(clusters_path)
-        cluster_path = os.path.join(clusters_path, cluster_id)
-        assert os.path.exists(os.path.join(cluster_path, "dcos.toml"))
-        assert os.path.exists(os.path.join(
-            cluster_path, constants.DCOS_CLUSTER_ATTACHED_FILE))

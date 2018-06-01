@@ -8,7 +8,7 @@ import requests
 from six.moves import urllib
 from six.moves.urllib.request import urlopen
 
-from dcos import config, constants, http, util
+from dcos import auth, config, constants, http, util
 from dcos.errors import DCOSException
 
 
@@ -21,49 +21,35 @@ STATUS_UNAVAILABLE = 'UNAVAILABLE'
 VERSION_UNKNOWN = 'N/A'
 
 
-def move_to_cluster_config():
-    """Create a cluster specific config file + directory
-    from a global config file. This will move users from global config
-    structure (~/.dcos/dcos.toml) to the cluster specific one
-    (~/.dcos/clusters/CLUSTER_ID/dcos.toml) and set that cluster as
-    the "attached" cluster.
+def setup_cluster(dcos_url, username, password, refresh_auth=False):
+    """Setup a new connection to a DC/OS cluster.
 
-    :rtype: None
+    :returns: the cluster that was connected to
+    :rtype: str
     """
 
-    global_config = config.get_global_config()
-    dcos_url = config.get_config_val("core.dcos_url", global_config)
+    url = util.normalize_url(dcos_url)
 
-    # if no cluster is set, do not move the cluster yet
-    if dcos_url is None:
-        return
+    # first see if it is already configured
+    cluster = get_cluster_by_url(url)
+    if cluster is not None:
+        cluster.set_attached()
+        if refresh_auth:
+            auth.dcos_uid_password_auth(url, username, password)
+        return cluster
 
-    try:
-        # find cluster id
-        cluster_url = dcos_url.rstrip('/') + '/metadata'
-        res = http.get(cluster_url)
-        cluster_id = res.json().get("CLUSTER_ID")
+    with setup_directory() as tempdir:
+        set_attached(tempdir)
 
-    # don't move cluster if dcos_url is not valid
-    except DCOSException as e:
-        logger.error(
-            "Error trying to find cluster id: {}".format(e))
-        return
+        # in python 2 this url NEEDS to be a str
+        # otherwise for some reason toml messes up
+        config.set_val("core.dcos_url", str(url))
 
-    # create cluster id dir
-    cluster_path = os.path.join(config.get_config_dir_path(),
-                                constants.DCOS_CLUSTERS_SUBDIR,
-                                cluster_id)
+        # get validated dcos_url
+        config.set_val("core.ssl_verify", "false")
 
-    util.ensure_dir_exists(cluster_path)
-
-    # move config file to new location
-    global_config_path = config.get_global_config_path()
-    util.sh_copy(global_config_path, cluster_path)
-
-    # set cluster as attached
-    util.ensure_file_exists(os.path.join(
-        cluster_path, constants.DCOS_CLUSTER_ATTACHED_FILE))
+        auth.dcos_uid_password_auth(url, username, password)
+        return setup_cluster_config(url, tempdir, False)
 
 
 @contextlib.contextmanager
@@ -98,8 +84,8 @@ def setup_cluster_config(dcos_url, temp_path, stored_cert):
     :type temp_path: str
     :param stored_cert: whether we stored cert bundle in 'setup' dir
     :type stored_cert: bool
-    :returns: path to cluster specific directory
-    :rtype: str
+    :returns: the cluster object
+    :rtype: Cluster
     """
 
     try:
@@ -151,7 +137,7 @@ def setup_cluster_config(dcos_url, temp_path, stored_cert):
 
     config.set_val("cluster.name", cluster_name, config_path=config_path)
 
-    return cluster_path
+    return cluster
 
 
 def get_attached_cluster():
@@ -299,6 +285,21 @@ def get_cluster(name):
     return next(iter(clusters), None)
 
 
+def get_cluster_by_url(dcos_url):
+    """
+    :param dcos_url: URL of the DC/OS cluster
+    :type name: str
+    :returns: Cluster identified by url.
+    :rtype: Cluster or None if not configured
+    """
+    url = util.normalize_url(dcos_url)
+
+    for cluster in get_clusters():
+        cluster_url = util.normalize_url(cluster.get_url())
+        if cluster_url == url:
+            return cluster
+
+
 def get_cluster_links(dcos_url):
     """
     Get cluster links.
@@ -373,6 +374,14 @@ class Cluster(object):
         self.cluster_path = os.path.join(
             config.get_clusters_path(), cluster_id)
 
+    @staticmethod
+    def setup(url, username, password):
+        return setup_cluster(url, username, password)
+
+    @staticmethod
+    def get_attached():
+        return get_attached_cluster()
+
     def get_cluster_path(self):
         return self.cluster_path
 
@@ -419,6 +428,10 @@ class Cluster(object):
 
         return os.path.exists(os.path.join(
             self.cluster_path, constants.DCOS_CLUSTER_ATTACHED_FILE))
+
+    def set_attached(self):
+        """Set this cluster as the attached cluster."""
+        set_attached(self.get_cluster_path())
 
     def get_status(self):
         if self.get_dcos_version() == VERSION_UNKNOWN:
